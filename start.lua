@@ -1,7 +1,7 @@
-local reactor = require("reactor")
+local reactor_mod = require("reactor")
 
 local function main()
-  reactor.findAll()
+  local reactors = reactor_mod.init_all()
 end
 
 main()

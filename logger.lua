@@ -1,11 +1,11 @@
-local component = require("component")
-local gpu = component.gpu
+local gpu = require("component").gpu
 
 local logger = {}
 local methods = {}
 
 local COLORS = {
   RESET = 0xFFFFFF, -- White
+  DEBUG = 0x66CCFF, -- Light Blue
   INFO  = 0x00FF00, -- Green
   WARN  = 0xFFAA00, -- Orange/Gold
   ERR   = 0xFF0000  -- Red
@@ -24,6 +24,10 @@ local function log(prefix, label, msg, color)
   gpu.setForeground(COLORS.RESET)
   print(msg)
   gpu.setForeground(oldColor)
+end
+
+function methods:debug(msg)
+  log(self.prefix, "DEBUG", msg, COLORS.DEBUG)
 end
 
 function methods:info(msg)
