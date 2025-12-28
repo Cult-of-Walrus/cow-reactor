@@ -1,5 +1,6 @@
-local comp = require("component")
 local log = require("logger").new("REACTOR")
+local comp = require("component")
+local status = require("status")
 local reactor = {}
 local methods = {}
 
@@ -41,9 +42,8 @@ function reactor.new(name, chamber)
   local instance = {
     name = name,
     chamber = chamber,
-    status = chamber.producesEnergy and "ACTIVE" or "IDLE",
     curr_heat = chamber.getHeat,
-    max_heat = chamber.getMaxHeat,
+    max_heat = chamber.getMaxHeat(),
     output = chamber.getReactorEUOutput
   }
 
@@ -60,26 +60,41 @@ end
 
 function methods:isOk()
   if self:hasDepletedCoolant() then
-    return false
+    return false, status.DEPLETED_COOLANT
   end
 
   if self:hasDepletedFuelRod() then
-    return false
+    return false, status.DEPLETED_FUEL
   end
 
-  local threshold = self:max_heat() / self:curr_heat()
-  if threshold > MAX_OPERATING_HEAT_PCT or threshold == math.huge then
-    return false
+  local heat_pct = self:curr_heat() / self.max_heat
+  if heat_pct > MAX_OPERATING_HEAT_PCT then
+    return false, status.OVERHEATED
   end
-end
 
-function methods:run()
-  while self:isOk() do
-  end
+  return true, status.OK
 end
 
 function methods:enable(enabled)
   self.chamber.setActive(enabled)
+end
+
+function methods:run()
+  self:enable(true)
+  local reason = status.UNKNOWN
+
+  while true do
+    local ok, stop_reason = self:isOk()
+    if not ok then
+      reason = stop_reason
+      break
+    end
+
+    os.sleep(0.5) -- avoid tight loops?
+  end
+
+  self:enable(false)
+  return reason
 end
 
 return reactor
