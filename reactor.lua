@@ -211,8 +211,6 @@ function methods:run()
       reason = stop_reason
       break
     end
-
-    os.sleep(0)
   end
 
   self:enable(false)
