@@ -17,6 +17,8 @@ function controller.new(reactors)
     os.exit(1)
   end
 
+  comp.redstone.setOutput({ 0, 0, 0, 0, 0, 0 })
+
   return setmetatable({
     reactors = reactors,
     io = comp.redstone,
@@ -64,8 +66,7 @@ function methods:shutdown()
   log:info("Shutdown initiated")
 
   self:stopAll()
-  self.io.setOutput(side.left, 0)
-  self.io.setOutput(side.right, 0)
+  self.io.setOutput({ 0, 0, 0, 0, 0, 0 })
 
   log:info("Shutdown complete")
 end
@@ -90,7 +91,7 @@ function methods:manage()
 
     log:info("Waiting for all systems clear...")
     while not self:allReactorsOk() do
-      os.sleep(1.02)
+      os.sleep(2)
     end
 
     log:info("All systems clear. Resuming...")
