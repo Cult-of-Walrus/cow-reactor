@@ -1,4 +1,3 @@
-local comp = require("component")
 local log = require("logger").new("CONTROLLER")
 local controller = {}
 local methods = {}

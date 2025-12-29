@@ -1,12 +1,51 @@
 local log = require("logger").new("REACTOR")
 local comp = require("component")
-local status = require("status")
 local side = require("sides")
 local reactor = {}
 local methods = {}
 
 local MAX_OPERATING_HEAT_PCT = 0.5
+local MAX_COOLANT_DMG_PCT = 0.75
 local TARGET_SIDE = side.top
+
+local STATUS = {
+  OK = "OK",
+  DEPLETED_FUEL = "DEPLETED FUEL",
+  DEPLETED_COOLANT = "DEPLETED COOLANT",
+  OVERHEATED = "OVERHEATED",
+  UNKNOWN = "UNKNOWN"
+}
+
+local COOLANT_CELL = 1
+local FUEL_ROD = 2
+local FUEL_ROD_DEPLETED = 3
+local KNOWN_ITEMS = {
+  ["IC2:reactorCoolantSimple"] = COOLANT_CELL,
+  ["IC2:reactorCoolantTriple"] = COOLANT_CELL,
+  ["IC2:reactorCoolantSix"] = COOLANT_CELL,
+  ["gregtech:gt.60k_NaK_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.180k_NaK_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.360k_NaK_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.60k_Helium_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.180k_Helium_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.360k_Helium_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.180k_Space_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.360k_Space_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.540k_Space_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.1080k_Space_Coolantcell"] = COOLANT_CELL,
+  ["gregtech:gt.rodUranium"] = FUEL_ROD,
+  ["gregtech:gt.rodUranium2"] = FUEL_ROD,
+  ["gregtech:gt.rodUranium4"] = FUEL_ROD,
+  ["gregtech:gt.rodThorium"] = FUEL_ROD,
+  ["gregtech:gt.rodThorium2"] = FUEL_ROD,
+  ["gregtech:gt.rodThorium4"] = FUEL_ROD,
+  ["gregtech:gt.depletedRodUranium"] = FUEL_ROD_DEPLETED,
+  ["gregtech:gt.depletedRodUranium2"] = FUEL_ROD_DEPLETED,
+  ["gregtech:gt.depletedRodUranium4"] = FUEL_ROD_DEPLETED,
+  ["gregtech:gt.depletedRodThorium"] = FUEL_ROD_DEPLETED,
+  ["gregtech:gt.depletedRodThorium2"] = FUEL_ROD_DEPLETED,
+  ["gregtech:gt.depletedRodThorium4"] = FUEL_ROD_DEPLETED,
+}
 
 local function nameOf(component)
   return string.sub(component.address, 1, 8)
@@ -78,13 +117,18 @@ local function findComponentPairs()
   return pairs
 end
 
-function reactor.initAll()
+function reactor.getAll()
   local reactors = {}
 
   log:info("Searching for reactors...")
   local components = findComponentPairs()
-  log:info("Found " .. #components .. " valid reactor/s")
 
+  if #components == 0 then
+    log:err("No valid reactors found!")
+    os.exit(1)
+  end
+
+  log:info("Found " .. #components .. " valid reactor/s")
   for _, c in ipairs(components) do
     table.insert(reactors, reactor.new(nameOf(c.chamber), c.chamber, c.inventory))
   end
@@ -108,29 +152,49 @@ function reactor.new(name, chamber, inventory)
   return setmetatable(instance, { __index = methods })
 end
 
-function methods:hasDepletedCoolant()
-  error("Not Implemented", 2)
+function methods:hasDepletedCoolant(inventory)
+  for _, item in ipairs(inventory) do
+    if KNOWN_ITEMS[item.name] == FUEL_ROD_DEPLETED then
+      return true
+    end
+  end
+
+  return false
 end
 
-function methods:hasDepletedFuelRod()
-  error("Not Implemented", 2)
+function methods:hasDepletedFuelRod(inventory)
+  for _, item in ipairs(inventory) do
+    if not KNOWN_ITEMS[item.name] == FUEL_ROD then
+      goto continue
+    end
+
+    if item.damage / 100 < MAX_COOLANT_DMG_PCT then
+      return true
+    end
+
+    ::continue::
+  end
+
+  return false
 end
 
 function methods:isOk()
-  if self:hasDepletedCoolant() then
-    return false, status.DEPLETED_COOLANT
+  local inv = self.inventory.getAllStacks(side.top).getAll()
+
+  if self:hasDepletedCoolant(inv) then
+    return false, STATUS.DEPLETED_COOLANT
   end
 
-  if self:hasDepletedFuelRod() then
-    return false, status.DEPLETED_FUEL
+  if self:hasDepletedFuelRod(inv) then
+    return false, STATUS.DEPLETED_FUEL
   end
 
   local heat_pct = self:curr_heat() / self.max_heat
   if heat_pct > MAX_OPERATING_HEAT_PCT then
-    return false, status.OVERHEATED
+    return false, STATUS.OVERHEATED
   end
 
-  return true, status.OK
+  return true, STATUS.OK
 end
 
 function methods:enable(enabled)
@@ -139,7 +203,7 @@ end
 
 function methods:run()
   self:enable(true)
-  local reason = status.UNKNOWN
+  local reason = STATUS.UNKNOWN
 
   while true do
     local ok, stop_reason = self:isOk()
