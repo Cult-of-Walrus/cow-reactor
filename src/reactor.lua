@@ -196,21 +196,27 @@ function methods:enable(enabled)
   self.chamber.setActive(enabled)
 end
 
-function methods:run()
-  self:enable(true)
-  local reason = STATUS.UNKNOWN
-
+function methods:run(controller)
   while true do
-    local ok, stop_reason = self:isOk()
-    if not ok then
-      reason = stop_reason
-      break
+    self:enable(true)
+    log:info("Reactor [" .. self.name .. "] is now ONLINE")
+
+    local reason = STATUS.UNKNOWN
+    while true do
+      local ok, stop_reason = self:isOk()
+      if not ok then
+        reason = stop_reason
+        break
+      end
+      os.sleep(0.5)
     end
+
+    self:enable(false)
+    log:info("Reactor [" .. self.name .. "] is now OFFLINE: " .. reason)
+
+    controller:fix(self, reason)
     os.sleep(0.5)
   end
-
-  self:enable(false)
-  return reason
 end
 
 return reactor

@@ -22,7 +22,8 @@ function controller.new(reactors)
   return setmetatable({
     reactors = reactors,
     io = comp.redstone,
-    threads = {}
+    threads = {},
+    is_swapping = false
   }, { __index = methods })
 end
 
@@ -71,30 +72,45 @@ function methods:shutdown()
   log:info("Shutdown complete")
 end
 
-function methods:manage()
-  while true do
-    log:info("Starting all reactors")
+function methods:fix(reactor, reason)
+  while self.is_swapping do
+    os.sleep(0.05)
+  end
 
-    for _, r in ipairs(self.reactors) do
-      local t = thread.create(function(target)
-        return target:run()
-      end, r)
-      table.insert(self.threads, t)
-    end
+  self.is_swapping = true
+  os.sleep(0)    -- sync with mc world
+  os.sleep(0.05) -- skip reactor tick
 
-    thread.waitForAny(self.threads)
-
-    os.sleep(0) -- sync with minecraft ticks
-    self:stopAll()
+  if reason == "DEPLETED_COOLANT" then
     self:swapCells()
+  elseif reason == "DEPLETED_FUEL" then
     self:swapRods()
+  end
 
-    log:info("Waiting for all systems clear...")
-    while not self:allReactorsOk() do
-      os.sleep(2)
+  log:info("Waiting for reactor [" .. reactor.name .. "]")
+  while true do
+    local ok, _ = reactor:isOk()
+    if ok then
+      break
     end
 
-    log:info("All systems clear. Resuming...")
+    os.sleep(1)
+  end
+
+  self.is_swapping = false
+end
+
+function methods:manage()
+  log:info("Starting independent reactor management")
+  for _, r in ipairs(self.reactors) do
+    local t = thread.create(function(target, ctrl)
+      target:run(ctrl)
+    end, r, self)
+    table.insert(self.threads, t)
+  end
+
+  while true do
+    os.sleep(1000) -- keep alive
   end
 end
 
