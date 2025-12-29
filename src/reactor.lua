@@ -1,17 +1,18 @@
 local log = require("logger").new("REACTOR")
 local comp = require("component")
 local side = require("sides")
+
 local reactor = {}
 local methods = {}
 
 local MAX_OPERATING_HEAT_PCT = 0.5
 local MAX_COOLANT_DMG_PCT = 0.75
-local TARGET_SIDE = side.top
+local ADAPTER_TARGET_SIDE = side.top
 
 local STATUS = {
   OK = "OK",
-  DEPLETED_FUEL = "DEPLETED FUEL",
-  DEPLETED_COOLANT = "DEPLETED COOLANT",
+  DEPLETED_FUEL = "DEPLETED_FUEL",
+  DEPLETED_COOLANT = "DEPLETED_COOLANT",
   OVERHEATED = "OVERHEATED",
   UNKNOWN = "UNKNOWN"
 }
@@ -84,7 +85,7 @@ local function findComponentPairs()
   for _, cham in ipairs(chambers) do
     local snapshots = {}
     for _, inv in ipairs(controllers) do
-      snapshots[inv.address] = hashOf(inv.getAllStacks(TARGET_SIDE).getAll())
+      snapshots[inv.address] = hashOf(inv.getAllStacks(ADAPTER_TARGET_SIDE).getAll())
     end
 
     cham.setActive(true)
@@ -93,13 +94,13 @@ local function findComponentPairs()
 
     local found = false
     for _, inv in ipairs(controllers) do
-      local newState = hashOf(inv.getAllStacks(TARGET_SIDE).getAll())
+      local newState = hashOf(inv.getAllStacks(ADAPTER_TARGET_SIDE).getAll())
 
       if newState ~= snapshots[inv.address] then
         table.insert(pairs, {
           chamber = cham,
           inventory = inv,
-          side = TARGET_SIDE
+          side = ADAPTER_TARGET_SIDE
         })
         log:info("Mapped chamber [" .. nameOf(cham) .. "] to inventory controller [" .. nameOf(inv) .. "]")
         found = true
@@ -140,19 +141,17 @@ function reactor.new(name, chamber, inventory)
   log:info("Initializing reactor [" .. name .. "]")
   chamber.setActive(false)
 
-  local instance = {
+  return setmetatable({
     name = name,
     chamber = chamber,
     inventory = inventory,
     curr_heat = chamber.getHeat,
     max_heat = chamber.getMaxHeat(),
     output = chamber.getReactorEUOutput
-  }
-
-  return setmetatable(instance, { __index = methods })
+  }, { __index = methods })
 end
 
-function methods:hasDepletedCoolant(inventory)
+function methods:hasDepletedFuelRod(inventory)
   for _, item in ipairs(inventory) do
     if KNOWN_ITEMS[item.name] == FUEL_ROD_DEPLETED then
       return true
@@ -162,17 +161,13 @@ function methods:hasDepletedCoolant(inventory)
   return false
 end
 
-function methods:hasDepletedFuelRod(inventory)
-  for _, item in ipairs(inventory) do
-    if not KNOWN_ITEMS[item.name] == FUEL_ROD then
-      goto continue
+function methods:hasDepletedCoolant(inventory)
+  for _, item in pairs(inventory) do
+    if KNOWN_ITEMS[item.name] == COOLANT_CELL then
+      if item.damage / item.maxDamage >= MAX_COOLANT_DMG_PCT then
+        return true
+      end
     end
-
-    if item.damage / 100 < MAX_COOLANT_DMG_PCT then
-      return true
-    end
-
-    ::continue::
   end
 
   return false
@@ -211,6 +206,7 @@ function methods:run()
       reason = stop_reason
       break
     end
+    os.sleep(0.5)
   end
 
   self:enable(false)
