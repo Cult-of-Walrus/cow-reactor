@@ -1,52 +1,21 @@
 local log = require("logger").new("REACTOR")
 local comp = require("component")
-local side = require("sides")
+local cfg = require("config")
 
 local reactor = {}
 local methods = {}
-
-local MAX_OPERATING_HEAT_PCT = 0.5
-local MAX_COOLANT_DMG_PCT = 0.75
-local ADAPTER_TARGET_SIDE = side.top
 
 local STATUS = {
   OK = "OK",
   DEPLETED_FUEL = "DEPLETED_FUEL",
   DEPLETED_COOLANT = "DEPLETED_COOLANT",
   OVERHEATED = "OVERHEATED",
+  LOW_ENERGY = "LOW_ENERGY",
+  ENERGY_FULL = "ENERGY_FULL",
   UNKNOWN = "UNKNOWN"
 }
 
-local COOLANT_CELL = 1
-local FUEL_ROD = 2
-local FUEL_ROD_DEPLETED = 3
-local KNOWN_ITEMS = {
-  ["IC2:reactorCoolantSimple"] = COOLANT_CELL,
-  ["IC2:reactorCoolantTriple"] = COOLANT_CELL,
-  ["IC2:reactorCoolantSix"] = COOLANT_CELL,
-  ["gregtech:gt.60k_NaK_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.180k_NaK_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.360k_NaK_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.60k_Helium_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.180k_Helium_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.360k_Helium_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.180k_Space_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.360k_Space_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.540k_Space_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.1080k_Space_Coolantcell"] = COOLANT_CELL,
-  ["gregtech:gt.rodUranium"] = FUEL_ROD,
-  ["gregtech:gt.rodUranium2"] = FUEL_ROD,
-  ["gregtech:gt.rodUranium4"] = FUEL_ROD,
-  ["gregtech:gt.rodThorium"] = FUEL_ROD,
-  ["gregtech:gt.rodThorium2"] = FUEL_ROD,
-  ["gregtech:gt.rodThorium4"] = FUEL_ROD,
-  ["gregtech:gt.depletedRodUranium"] = FUEL_ROD_DEPLETED,
-  ["gregtech:gt.depletedRodUranium2"] = FUEL_ROD_DEPLETED,
-  ["gregtech:gt.depletedRodUranium4"] = FUEL_ROD_DEPLETED,
-  ["gregtech:gt.depletedRodThorium"] = FUEL_ROD_DEPLETED,
-  ["gregtech:gt.depletedRodThorium2"] = FUEL_ROD_DEPLETED,
-  ["gregtech:gt.depletedRodThorium4"] = FUEL_ROD_DEPLETED,
-}
+
 
 local function nameOf(component)
   return string.sub(component.address, 1, 8)
@@ -85,7 +54,7 @@ local function findComponentPairs()
   for _, cham in ipairs(chambers) do
     local snapshots = {}
     for _, inv in ipairs(controllers) do
-      snapshots[inv.address] = hashOf(inv.getAllStacks(ADAPTER_TARGET_SIDE).getAll())
+      snapshots[inv.address] = hashOf(inv.getAllStacks(cfg.REACTOR_ADAPTER_TARGET_SIDE).getAll())
     end
 
     cham.setActive(true)
@@ -94,13 +63,12 @@ local function findComponentPairs()
 
     local found = false
     for _, inv in ipairs(controllers) do
-      local newState = hashOf(inv.getAllStacks(ADAPTER_TARGET_SIDE).getAll())
+      local newState = hashOf(inv.getAllStacks(cfg.REACTOR_ADAPTER_TARGET_SIDE).getAll())
 
       if newState ~= snapshots[inv.address] then
         table.insert(pairs, {
           chamber = cham,
           inventory = inv,
-          side = ADAPTER_TARGET_SIDE
         })
         log:info("Mapped chamber [" .. nameOf(cham) .. "] to inventory controller [" .. nameOf(inv) .. "]")
         found = true
@@ -153,7 +121,7 @@ end
 
 function methods:hasDepletedFuelRod(inventory)
   for _, item in ipairs(inventory) do
-    if KNOWN_ITEMS[item.name] == FUEL_ROD_DEPLETED then
+    if cfg.KNOWN_ITEMS[item.name] == cfg.KNOWN_ITEMS.FUEL_ROD_DEPLETED then
       return true
     end
   end
@@ -163,8 +131,8 @@ end
 
 function methods:hasDepletedCoolant(inventory)
   for _, item in pairs(inventory) do
-    if KNOWN_ITEMS[item.name] == COOLANT_CELL then
-      if item.damage / item.maxDamage >= MAX_COOLANT_DMG_PCT then
+    if cfg.KNOWN_ITEMS[item.name] == cfg.KNOWN_ITEMS.COOLANT_CELL then
+      if item.damage / item.maxDamage >= cfg.MAX_COOLANT_DMG_PCT then
         return true
       end
     end
@@ -174,7 +142,7 @@ function methods:hasDepletedCoolant(inventory)
 end
 
 function methods:isOk()
-  local inv = self.inventory.getAllStacks(side.top).getAll()
+  local inv = self.inventory.getAllStacks(cfg.REACTOR_ADAPTER_TARGET_SIDE).getAll()
 
   if self:hasDepletedCoolant(inv) then
     return false, STATUS.DEPLETED_COOLANT
@@ -185,7 +153,7 @@ function methods:isOk()
   end
 
   local heat_pct = self:curr_heat() / self.max_heat
-  if heat_pct > MAX_OPERATING_HEAT_PCT then
+  if heat_pct > cfg.MAX_OPERATING_HEAT_PCT then
     return false, STATUS.OVERHEATED
   end
 

@@ -42,4 +42,8 @@ function methods:err(msg)
   log(self.prefix, "ERROR", msg, COLORS.ERR)
 end
 
+function methods:critical(msg)
+  log(self.prefix, "CRITICAL", msg, COLORS.ERR)
+end
+
 return logger

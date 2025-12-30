@@ -1,13 +1,10 @@
 local log = require("logger").new("CONTROLLER")
 local comp = require("component")
-local side = require("sides")
 local thread = require("thread")
+local cfg = require("config")
 
 local controller = {}
 local methods = {}
-
-local REDSTONE_COOLANT_SIDE = side.south
-local REDSTONE_FUEL_SIDE = side.north
 
 function controller.new(reactors)
   log:info("Initializing controller")
@@ -16,29 +13,40 @@ function controller.new(reactors)
     log:err("No redstone I/O detected!")
     os.exit(1)
   end
-
   comp.redstone.setOutput({ 0, 0, 0, 0, 0, 0 })
+
+  local lsc = nil
+  if comp.isAvailable("gt_machine") and comp.gt_machine.getName() ~= "multimachine.supercapacitor" then
+    log:warn("No LSC detected; running without")
+  else
+    lsc = comp.gt_machine
+  end
 
   return setmetatable({
     reactors = reactors,
     io = comp.redstone,
     threads = {},
-    is_swapping = false
+    is_swapping = false,
+    lsc = lsc,
   }, { __index = methods })
+end
+
+function methods:alarm()
+  self.io.setOutput(cfg.REDSTONE_ALARM_SIDE, 15)
 end
 
 function methods:swapCells()
   log:info("Swapping all hot coolant cells")
-  self.io.setOutput(REDSTONE_COOLANT_SIDE, 15)
+  self.io.setOutput(cfg.REDSTONE_COOLANT_SIDE, 15)
   os.sleep(0.1)
-  self.io.setOutput(REDSTONE_COOLANT_SIDE, 0)
+  self.io.setOutput(cfg.REDSTONE_COOLANT_SIDE, 0)
 end
 
 function methods:swapRods()
   log:info("Swapping all depleted fuel rods")
-  self.io.setOutput(REDSTONE_FUEL_SIDE, 15)
+  self.io.setOutput(cfg.REDSTONE_FUEL_SIDE, 15)
   os.sleep(0.1)
-  self.io.setOutput(REDSTONE_FUEL_SIDE, 0)
+  self.io.setOutput(cfg.REDSTONE_FUEL_SIDE, 0)
 end
 
 function methods:allReactorsOk()
@@ -46,6 +54,7 @@ function methods:allReactorsOk()
     local ok, reason = r:isOk()
     if not ok then
       log:warn("Reactor [" .. r.name .. "] is still not OK: " .. reason)
+      -- TODO: add alarm if this repeats
       return false
     end
   end
@@ -85,6 +94,13 @@ function methods:fix(reactor, reason)
     self:swapCells()
   elseif reason == "DEPLETED_FUEL" then
     self:swapRods()
+  else
+    log:critical("[" .. reactor.name .. "]  is in critical condition: " .. reason)
+    self:alarm()
+    self:stopAll()
+    while true do
+      os.sleep(1000)
+    end
   end
 
   log:info("Waiting for reactor [" .. reactor.name .. "]")
@@ -93,7 +109,7 @@ function methods:fix(reactor, reason)
     if ok then
       break
     end
-
+    log:warn("[" .. reactor.name .. "] is still OFFLINE: " .. reason)
     os.sleep(1)
   end
 
@@ -101,7 +117,7 @@ function methods:fix(reactor, reason)
 end
 
 function methods:manage()
-  log:info("Starting independent reactor management")
+  log:info("Starting reactor management")
   for _, r in ipairs(self.reactors) do
     local t = thread.create(function(target, ctrl)
       target:run(ctrl)
