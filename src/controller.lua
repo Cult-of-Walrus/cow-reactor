@@ -59,9 +59,11 @@ function controller.new(reactors)
   }, { __index = methods })
 end
 
-function methods:redstonePulse(side)
+function methods:redstonePulse(side, duration)
+  duration = duration or 0.1
+
   self.io.setOutput(side, 15)
-  os.sleep(0.1)
+  os.sleep(duration)
   self.io.setOutput(side, 0)
 end
 
@@ -87,6 +89,7 @@ function methods:startAll()
         target:run(ctrl)
       else
         log:warn("Skipped [" .. target.name .. "] during startup: " .. reason)
+        self:redstonePulse(cfg.REDSTONE_ALARM_SIDE, 1.5)
       end
     end, r, self)
     table.insert(self.threads, t)

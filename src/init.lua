@@ -3,8 +3,8 @@ local comp = require("component")
 local event = require("event")
 
 local function main()
-  log:warn("Make sure you have sufficient coolant in every reactor!")
-  os.sleep(3) -- grace period
+  log:warn("Make sure you have sufficient coolant in every reactor during startup!")
+  os.sleep(5) -- grace period
 
   if not comp.isAvailable("redstone") then
     log:err("No redstone I/O detected!")
