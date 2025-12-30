@@ -1,5 +1,6 @@
 {
   "cSpell.words": [
+    "batterybuffer",
     "Coolantcell",
     "gregtech",
     "multimachine",
@@ -7,5 +8,8 @@
     "Naquadria",
     "supercapacitor",
     "Tiberium"
+  ],
+  "Lua.diagnostics.disable": [
+    "undefined-field"
   ]
 }

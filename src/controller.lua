@@ -6,20 +6,56 @@ local cfg = require("config")
 local controller = {}
 local methods = {}
 
+local function findBattery()
+  local battery = nil
+
+  if comp.isAvailable("gt_machine") and comp.gt_machine.getName() == "multimachine.supercapacitor" then
+    battery = {
+      current = comp.gt_machine.getEUStored,
+      max = comp.gt_machine.getEUCapacity()
+    }
+  elseif comp.isAvailable("gt_batterybuffer") then
+    local max = 0
+    for i = 1, 16, 1 do
+      if comp.gt_batterybuffer.getMaxBatteryCharge(i) ~= nil then
+        max = max + comp.gt_batterybuffer.getMaxBatteryCharge(i)
+      end
+    end
+
+    if max == 0 then
+      log:warn("Battery buffer detected but it's empty!")
+      return nil
+    end
+
+    battery = {
+      current = function()
+        local current = 0
+        for i = 1, 16, 1 do
+          if comp.gt_batterybuffer.getBatteryCharge(i) ~= nil then
+            current = current + comp.gt_batterybuffer.getBatteryCharge(i)
+          end
+        end
+
+        return current
+      end,
+      max = max
+    }
+
+    log:warn("It seems you are using a battery buffer. They are slow! Consider upgrading to an LSC")
+  end
+
+  return battery
+end
+
 function controller.new(reactors)
   log:info("Initializing controller")
-
-  local battery = nil
-  if comp.isAvailable("gt_machine") and comp.gt_machine.getName() == "multimachine.supercapacitor" then
-    battery = comp.gt_machine
-  end
 
   return setmetatable({
     reactors = reactors,
     io = comp.redstone,
     threads = {},
     is_swapping = false,
-    battery = battery
+    battery = findBattery()
   }, { __index = methods })
 end
 
@@ -127,17 +163,6 @@ function methods:fix(reactor, reason)
   self.is_fixing = false
 end
 
-function methods:getStoredEU()
-  if not self.battery then
-    return 1.0
-  end
-
-  local current = self.battery.getStoredEU()
-  local max = self.battery.getEUCapacity()
-
-  return current / max
-end
-
 function methods:manage()
   log:info("Starting reactor management")
   if cfg.MOX_MODE then
@@ -145,25 +170,25 @@ function methods:manage()
   end
 
   if not self.battery then
-    log:warn("No battery detected. Running reactors indefinitely")
+    log:warn("No valid battery detected. Running reactors indefinitely")
     self:startAll()
     while true do
       os.sleep(1000)
     end
   end
 
-  log:info("Battery detected. Monitoring energy levels...")
+  log:info("Valid battery detected. Monitoring energy levels...")
   local running = false
 
   while true do
-    local storage = self:getStoredEU()
-    local stored_eu_pct = math.floor(storage * 100)
+    local stored = self.battery.current() / self.battery.max
+    local stored_eu_pct = math.floor(stored * 100)
 
-    if not running and storage <= cfg.MIN_BATTERY_EU_PCT then
+    if not running and stored <= cfg.MIN_BATTERY_EU_PCT then
       log:warn("Battery low (" .. stored_eu_pct .. "%)")
       self:startAll()
       running = true
-    elseif running and storage >= cfg.MAX_BATTERY_EU_PCT then
+    elseif running and stored >= cfg.MAX_BATTERY_EU_PCT then
       log:info("Battery charged (" .. stored_eu_pct .. "%)")
       self:stopAll()
       running = false
