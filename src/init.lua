@@ -3,6 +3,9 @@ local comp = require("component")
 local event = require("event")
 
 local function main()
+  log:warn("Make sure you have sufficient coolant in every reactor!")
+  os.sleep(3) -- grace period
+
   if not comp.isAvailable("redstone") then
     log:err("No redstone I/O detected!")
     os.exit(1)
@@ -23,4 +26,7 @@ local function main()
   controller:shutdown()
 end
 
-pcall(main)
+local ok, err = pcall(main)
+if not ok then
+  log:err(err)
+end

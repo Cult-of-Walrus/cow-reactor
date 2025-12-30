@@ -120,9 +120,18 @@ end
 
 function methods:manage()
   log:info("Starting reactor management")
+  if cfg.MOX_MODE then
+    log:warn("Running in MOX mode")
+  end
+
   for _, r in ipairs(self.reactors) do
     local t = thread.create(function(target, ctrl)
-      target:run(ctrl)
+      local ok, reason = target:isOk(ctrl)
+      if ok then
+        target:run(ctrl)
+      else
+        log:warn("Skipped [" .. target.name .. "] during startup: " .. reason)
+      end
     end, r, self)
     table.insert(self.threads, t)
   end

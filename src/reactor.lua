@@ -60,7 +60,8 @@ local function findComponentPairs()
     end
 
     cham.setActive(true)
-    os.sleep(1.02)
+    os.sleep(0)
+    os.sleep(1.00)
     cham.setActive(false)
 
     local found = false
@@ -79,7 +80,7 @@ local function findComponentPairs()
     end
 
     if not found then
-      log:warn("Mapping failed for [" .. nameOf(cham) .. "]! Check for fuel and coolant")
+      log:warn("Mapping failed for [" .. nameOf(cham) .. "]! Are you missing the controller or fuel?")
     end
 
     snapshots = nil
@@ -92,8 +93,8 @@ function reactor.getAll()
   local reactors = {}
 
   log:info("Searching for reactors...")
-  local components = findComponentPairs()
 
+  local components = findComponentPairs()
   if #components == 0 then
     log:err("No valid reactors found!")
     os.exit(1)
@@ -111,12 +112,14 @@ function reactor.new(name, chamber, inventory)
   log:info("Initializing reactor [" .. name .. "]")
   chamber.setActive(false)
 
+  local max_heat = chamber.getMaxHeat() -- caching it to minimize use of component api
   return setmetatable({
     name = name,
     chamber = chamber,
     inventory = inventory,
     curr_heat = chamber.getHeat,
-    max_heat = chamber.getMaxHeat(),
+    curr_heat_pct = chamber.getHeat() / max_heat,
+    max_heat = max_heat,
     output = chamber.getReactorEUOutput
   }, { __index = methods })
 end
@@ -179,9 +182,10 @@ function methods:isOk()
     return false, STATUS.WRONG_LAYOUT
   end
 
-  local heat_pct = self:curr_heat() / self.max_heat
-  if heat_pct > cfg.MAX_OPERATING_HEAT_PCT then
-    return false, STATUS.OVERHEATED
+  if not cfg.MOX_MODE then
+    if self.curr_heat_pct > cfg.MAX_OPERATING_HEAT_PCT then
+      return false, STATUS.OVERHEATED
+    end
   end
 
   if comp.proxy(self.chamber.address) == nil then
@@ -196,6 +200,10 @@ function methods:enable(enabled)
 end
 
 function methods:run(controller)
+  if cfg.MOX_MODE and self.curr_heat_pct < cfg.MOX_TARGET_OPERATING_HEAT_PCT then
+    log:warn("Reactor [" .. self.name .. "] didn't reach MOX target heat")
+  end
+
   while true do
     self:enable(true)
     log:info("Reactor [" .. self.name .. "] is now ONLINE")
