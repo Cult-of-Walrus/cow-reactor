@@ -17,8 +17,9 @@ return {
   REDSTONE_COOLANT_SIDE = side.south,
   REDSTONE_FUEL_SIDE = side.north,
 
-  MIN_LCS_EU_PCT = 0.1,
-  MAX_LCS_EU_PCT = 0.9,
+  MIN_BATTERY_EU_PCT = 0.10,
+  MAX_BATTERY_EU_PCT = 0.90,
+  BATTERY_CHECK_FREQUENCY_SEC = 5,
 
   LAYOUT = {
     C, F, F, F, C, F, F, C, F,
