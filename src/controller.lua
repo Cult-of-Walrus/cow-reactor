@@ -89,7 +89,7 @@ function methods:fix(reactor, reason)
   elseif reason == "DEPLETED_FUEL" then
     self:swapRods()
   else
-    log:critical("[" .. reactor.name .. "]  is in critical condition: " .. reason)
+    log:critical("[" .. reactor.name .. "]  has a critical error: " .. reason)
     self:alarm()
     self:stopAll()
     while true do

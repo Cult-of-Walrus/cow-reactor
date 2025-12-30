@@ -10,6 +10,7 @@ local STATUS = {
   DEPLETED_FUEL = "DEPLETED_FUEL",
   DEPLETED_COOLANT = "DEPLETED_COOLANT",
   OVERHEATED = "OVERHEATED",
+  WRONG_LAYOUT = "WRONG_LAYOUT",
   LOW_ENERGY = "LOW_ENERGY",
   ENERGY_FULL = "ENERGY_FULL",
   EXPLODED = "EXPLODED",
@@ -142,6 +143,27 @@ function methods:hasDepletedCoolant(inventory)
   return false
 end
 
+function methods:hasWrongLayout(inventory)
+  for slotIndex = 0, #cfg.LAYOUT - 1 do
+    local item = inventory[slotIndex]
+    if item.name == nil then
+      log:warn("Reactor [" .. self.name .. "] slot " .. slotIndex .. " is empty")
+      return true
+    end
+
+    local expected = cfg.LAYOUT[slotIndex + 1]
+    local actual = cfg.KNOWN_ITEMS[item.name]
+
+    if actual ~= expected then
+      log:warn("Reactor [" .. self.name .. "] layout mismatch at slot " .. slotIndex)
+      log:warn("Expected type " .. expected .. " but found " .. (actual or "UNKNOWN"))
+      return true
+    end
+  end
+
+  return false
+end
+
 function methods:isOk()
   local inv = self.inventory.getAllStacks(cfg.REACTOR_ADAPTER_TARGET_SIDE).getAll()
 
@@ -151,6 +173,10 @@ function methods:isOk()
 
   if self:hasDepletedFuelRod(inv) then
     return false, STATUS.DEPLETED_FUEL
+  end
+
+  if self:hasWrongLayout(inv) then
+    return false, STATUS.WRONG_LAYOUT
   end
 
   local heat_pct = self:curr_heat() / self.max_heat
