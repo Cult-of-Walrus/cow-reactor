@@ -25,8 +25,12 @@ function controller.new(reactors)
   }, { __index = methods })
 end
 
-function methods:alarm()
+function methods:emergency()
   self.io.setOutput(cfg.REDSTONE_ALARM_SIDE, 15)
+  self:stopAll()
+  while true do
+    os.sleep(1000) -- keep alive
+  end
 end
 
 function methods:swapCells()
@@ -90,20 +94,24 @@ function methods:fix(reactor, reason)
     self:swapRods()
   else
     log:critical("[" .. reactor.name .. "]  has a critical error: " .. reason)
-    self:alarm()
-    self:stopAll()
-    while true do
-      os.sleep(1000)
-    end
+    self:emergency()
   end
 
   log:info("Waiting for reactor [" .. reactor.name .. "]")
+  local retries = 0
   while true do
-    local ok, _ = reactor:isOk()
+    local ok, current_reason = reactor:isOk()
     if ok then
       break
     end
-    log:warn("[" .. reactor.name .. "] is still OFFLINE: " .. reason)
+
+    retries = retries + 1
+    if retries > cfg.MAX_FIX_RETRIES then
+      log:critical("[" .. reactor.name .. "] failed to recover after " .. cfg.MAX_FIX_RETRIES .. " retries!")
+      self:emergency()
+    end
+
+    log:warn("[" .. reactor.name .. "] is still OFFLINE: " .. current_reason .. " (" .. retries .. ")")
     os.sleep(1)
   end
 
