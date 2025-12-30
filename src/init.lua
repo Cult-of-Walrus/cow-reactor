@@ -1,10 +1,17 @@
-local reactor_mod = require("reactor")
-local controller_mod = require("controller")
+local log = require("logger").new("SYSTEM")
+local comp = require("component")
 local event = require("event")
 
 local function main()
-  local reactors = reactor_mod.getAll()
-  local controller = controller_mod.new(reactors)
+  if not comp.isAvailable("redstone") then
+    log:err("No redstone I/O detected!")
+    os.exit(1)
+  end
+
+  comp.redstone.setOutput({ 0, 0, 0, 0, 0, 0 })
+
+  local reactors = require("reactor").getAll()
+  local controller = require("controller").new(reactors)
 
   local runner = require("thread").create(function()
     controller:manage()
@@ -16,7 +23,4 @@ local function main()
   controller:shutdown()
 end
 
-local ok, err = pcall(main)
-if not ok and err ~= "interrupted" then
-  print(tostring(err))
-end
+pcall(main)

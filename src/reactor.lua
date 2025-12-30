@@ -12,6 +12,7 @@ local STATUS = {
   OVERHEATED = "OVERHEATED",
   LOW_ENERGY = "LOW_ENERGY",
   ENERGY_FULL = "ENERGY_FULL",
+  EXPLODED = "EXPLODED",
   UNKNOWN = "UNKNOWN"
 }
 
@@ -155,6 +156,10 @@ function methods:isOk()
   local heat_pct = self:curr_heat() / self.max_heat
   if heat_pct > cfg.MAX_OPERATING_HEAT_PCT then
     return false, STATUS.OVERHEATED
+  end
+
+  if comp.proxy(self.chamber.address) == nil then
+    return false, STATUS.EXPLODED
   end
 
   return true, STATUS.OK

@@ -9,15 +9,9 @@ local methods = {}
 function controller.new(reactors)
   log:info("Initializing controller")
 
-  if not comp.isAvailable("redstone") then
-    log:err("No redstone I/O detected!")
-    os.exit(1)
-  end
-  comp.redstone.setOutput({ 0, 0, 0, 0, 0, 0 })
-
   local lsc = nil
   if comp.isAvailable("gt_machine") and comp.gt_machine.getName() ~= "multimachine.supercapacitor" then
-    log:warn("No LSC detected; running without")
+    log:warn("No LSC detected! Running without")
   else
     lsc = comp.gt_machine
   end
