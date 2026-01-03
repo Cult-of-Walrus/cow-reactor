@@ -41,7 +41,7 @@ local function findBattery()
       max = max
     }
 
-    log:warn("It seems you are using a battery buffer. They are slow! Consider upgrading to an LSC")
+    log:warn("It seems you are using a battery buffer. They are slow! Consider upgrading to a LSC")
   end
 
   return battery
