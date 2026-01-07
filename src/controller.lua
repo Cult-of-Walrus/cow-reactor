@@ -59,6 +59,18 @@ function controller.new(reactors)
   }, { __index = methods })
 end
 
+function methods:syncToTick()
+  -- 1 second = 20 ticks. 1 tick = 3.6 OC units
+  -- 20 seconds * 3.6 OC units = 72 units
+  local interval = 72
+  local delta = interval - (os.time() % interval)
+
+  -- Wait for the next full second if at start of mc second to be safe
+  if delta > 0 then
+    os.sleep(delta / interval)
+  end
+end
+
 function methods:redstonePulse(side, duration)
   duration = duration or 0.1
 
@@ -129,12 +141,12 @@ end
 
 function methods:fix(reactor, reason)
   while self.is_fixing do
-    os.sleep(0.05)
+    os.sleep(0.1)
   end
 
   self.is_fixing = true
-  os.sleep(0)    -- sync with mc world
-  os.sleep(0.05) -- skip reactor tick
+  self:syncToTick()
+  os.sleep(0.1)
 
   if reason == "DEPLETED_COOLANT" then
     self:swapCells()
