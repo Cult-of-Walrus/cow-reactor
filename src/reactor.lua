@@ -210,19 +210,20 @@ function methods:run(controller)
 
     local reason = STATUS.UNKNOWN
     while true do
+      controller:syncToTick()
+      os.sleep(0.1)
+
       local ok, stop_reason = self:isOk()
       if not ok then
         reason = stop_reason
         break
       end
-      os.sleep(0.5)
     end
 
     self:enable(false)
     log:info("Reactor [" .. self.name .. "] is now OFFLINE: " .. reason)
 
     controller:fix(self, reason)
-    os.sleep(0.5)
   end
 end
 
