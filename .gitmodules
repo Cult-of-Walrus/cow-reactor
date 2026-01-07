@@ -1,0 +1,3 @@
+[submodule "src/lib/cow-logging"]
+	path = src/lib/cow-logging
+	url = https://github.com/Cult-of-Walrus/cow-logging
