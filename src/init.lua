@@ -1,4 +1,5 @@
-local log = require("lib.cow-logging.src.logger").new("REACTOR_SYSTEM")
+require("env")
+local log = require("lib.cow-logging.src.logger").new("REACTORS", "SYSTEM")
 local comp = require("component")
 local event = require("event")
 local thread = require("thread")

@@ -1,4 +1,4 @@
-local log = require("lib.cow-logging.src.logger").new("REACTOR_CONTROLLER")
+local log = require("lib.cow-logging.src.logger").new("REACTORS", "CONTROLLER")
 local comp = require("component")
 local thread = require("thread")
 local cfg = require("config")
@@ -81,12 +81,12 @@ end
 
 function methods:swapCells()
   log:info("Swapping all hot coolant cells")
-  self:redstonePulse(cfg.REDSTONE_COOLANT_SIDE)
+  self:redstonePulse(cfg.REDSTONE_COOLANT_SIDE, 0.3)
 end
 
 function methods:swapRods()
   log:info("Swapping all depleted fuel rods")
-  self:redstonePulse(cfg.REDSTONE_FUEL_SIDE)
+  self:redstonePulse(cfg.REDSTONE_FUEL_SIDE, 0.3)
 end
 
 function methods:startAll()
