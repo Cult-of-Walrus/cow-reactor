@@ -89,6 +89,17 @@ function methods:swapRods()
   self:redstonePulse(cfg.REDSTONE_FUEL_SIDE, 0.3)
 end
 
+function methods:handleFix(reactor, reason)
+  if reason == "DEPLETED_COOLANT" then
+    self:swapCells()
+  elseif reason == "DEPLETED_FUEL" then
+    self:swapRods()
+  else
+    log:critical("[" .. reactor.name .. "]  has a critical error: " .. reason)
+    self:emergency()
+  end
+end
+
 function methods:startAll()
   log:info("Starting all reactors")
   self.io.setOutput(cfg.REDSTONE_COOLANT_SIDE, 0)
@@ -148,14 +159,7 @@ function methods:fix(reactor, reason)
   self:syncToTick()
   os.sleep(0.1)
 
-  if reason == "DEPLETED_COOLANT" then
-    self:swapCells()
-  elseif reason == "DEPLETED_FUEL" then
-    self:swapRods()
-  else
-    log:critical("[" .. reactor.name .. "]  has a critical error: " .. reason)
-    self:emergency()
-  end
+  self:handleFix(reactor, reason)
 
   log:info("Waiting for reactor [" .. reactor.name .. "]")
   local retries = 0
@@ -172,6 +176,7 @@ function methods:fix(reactor, reason)
     end
 
     log:warn("[" .. reactor.name .. "] is still OFFLINE: " .. current_reason .. " (" .. retries .. ")")
+    self:handleFix(reactor, reason)
     os.sleep(1)
   end
 
